@@ -1,10 +1,10 @@
-image: registry.gitlab.com/ultimaker/cura/cura-build-environment:centos7
-
 stages:
   - build
+  - deploy
 
 build and test linux:
   stage: build
+  image: registry.gitlab.com/ultimaker/cura/cura-build-environment:centos7
   tags:
     - cura
     - docker
@@ -14,3 +14,65 @@ build and test linux:
   artifacts:
     paths:
       - build
+
+#build-deb-amd64:
+#  stage: build
+#  image: debian:buster
+#  tags:
+#    - cura
+#    - docker
+#    - linux
+#  before_script:
+#    - apt-get update
+#    - apt-get upgrade -y
+#    - apt-get install -y cmake gcc g++ curl
+#    - curl -1sLf 'https://dl.cloudsmith.io/public/ultimaker/cura-public/cfg/setup/bash.deb.sh' | bash
+#    - apt-get install -y cura-libprotobuf-dev=3.9.2-1
+#  script:
+#    - docker/build-deb-amd64.sh
+#  artifacts:
+#    paths:
+#      - build
+
+build-deb-mingw64:
+  stage: build
+  image: debian:buster
+  tags:
+    - cura
+    - docker
+    - linux
+  before_script:
+    - apt-get update
+    - apt-get upgrade -y
+    - apt-get install -y cmake gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 curl
+    - update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+    - update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+    - curl -1sLf 'https://dl.cloudsmith.io/public/ultimaker/cura-public/cfg/setup/bash.deb.sh' | bash
+    - apt-get install -y cura-libprotobuf-mingw-w64-dev=3.9.2-1 cura-libprotobuf-dev=3.9.2-1
+  script:
+    - docker/build-deb-mingw64.sh
+  artifacts:
+    paths:
+      - build
+
+publish-debs:
+  stage: deploy
+  image: debian:10
+  tags:
+    - cura
+    - docker
+    - linux
+  before_script:
+    - apt-get update
+    - apt-get upgrade -y
+    - apt-get install -y python3 python3-pip
+    - python3 -m pip install cloudsmith-cli
+  script:
+    - docker/publish-debs.sh
+  only:
+    - master
+    - /^v[0-9]+(\.[0-9]+)+-[0-9]+-deb-cura$/
+    - WIP_create_deb
+  artifacts:
+    paths:
+      - build/*.deb
